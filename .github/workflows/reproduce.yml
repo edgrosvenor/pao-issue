@@ -1,0 +1,41 @@
+name: reproduce
+
+# Demonstrates laravel/pao swallowing phpstan output under an AI-agent session.
+#
+# pao is DORMANT in normal CI (no agent env var present), so this workflow
+# exports AI_AGENT=1 to activate it. The swallow is then visible directly in
+# the job log: scenarios A/B/D print nothing under pao, while scenario C and D'
+# (with PAO_DISABLE=1) print the real phpstan output.
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  reproduce:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          tools: composer:v2
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Confirm versions
+        run: |
+          composer show laravel/pao | grep -E '^(name|versions)'
+          composer show phpstan/phpstan | grep -E '^(name|versions)'
+          composer show laravel/framework | grep -E '^versions'
+          php -v | head -1
+
+      # pao only activates when it detects an agent session; activate it explicitly.
+      - name: Run reproduction (pao ACTIVE)
+        env:
+          AI_AGENT: '1'
+        run: ./reproduce.sh
